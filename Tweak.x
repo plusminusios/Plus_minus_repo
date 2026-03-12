@@ -1,23 +1,35 @@
-// FaceIDFor6s — Tweak.x v4
+// FaceIDFor6s v5 — полная перезапись
+
 #import <LocalAuthentication/LocalAuthentication.h>
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import <Vision/Vision.h>
+#import <notify.h>
 
-// ─── Прочитать настройки ──────────────────────────────────────────────────────
+// ─── Настройки ────────────────────────────────────────────────────────────────
+#define kPref @"/var/mobile/Library/Preferences/com.yourname.faceidfor6s.plist"
+
 static BOOL      gEnabled        = YES;
 static NSInteger gRequiredFrames = 5;
 static NSInteger gTimeout        = 5;
 
 static void FIDLoadPrefs(void) {
-    NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:
-        @"/var/mobile/Library/Preferences/com.yourname.faceidfor6s.plist"];
+    NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:kPref];
     gEnabled        = d[@"enabled"]        ? [d[@"enabled"] boolValue]          : YES;
     gRequiredFrames = d[@"requiredFrames"] ? [d[@"requiredFrames"] integerValue] : 5;
     gTimeout        = d[@"timeout"]        ? [d[@"timeout"] integerValue]        : 5;
 }
 
-// ─── Форварды SpringBoard ─────────────────────────────────────────────────────
+static void FIDSavePrefs(NSString *key, id value) {
+    NSMutableDictionary *d = [[NSDictionary dictionaryWithContentsOfFile:kPref] mutableCopy]
+                           ?: [NSMutableDictionary new];
+    d[key] = value;
+    [d writeToFile:kPref atomically:YES];
+    notify_post("com.yourname.faceidfor6s/reload");
+    FIDLoadPrefs();
+}
+
+// ─── Форварды ─────────────────────────────────────────────────────────────────
 @interface SBFUserAuthenticationController : NSObject
 - (void)_biometricAuthenticationDidSucceed;
 - (void)_biometricAuthenticationDidFail;
@@ -35,6 +47,7 @@ static void FIDLoadPrefs(void) {
 @end
 
 @implementation FIDScanner
+
 + (instancetype)shared {
     static FIDScanner *s; static dispatch_once_t t;
     dispatch_once(&t, ^{ s = [FIDScanner new]; });
@@ -66,7 +79,6 @@ static void FIDLoadPrefs(void) {
     if ([self.session canAddOutput:out])   [self.session addOutput:out];
     [self.session startRunning];
 
-    // таймаут
     __weak typeof(self) ws = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(gTimeout*NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
@@ -80,7 +92,8 @@ static void FIDLoadPrefs(void) {
     self.session = nil;
 }
 
-- (void)captureOutput:(AVCaptureOutput *)o didOutputSampleBuffer:(CMSampleBufferRef)buf
+- (void)captureOutput:(AVCaptureOutput *)o
+didOutputSampleBuffer:(CMSampleBufferRef)buf
        fromConnection:(AVCaptureConnection *)c {
     if (self.done) return;
     CVPixelBufferRef px = CMSampleBufferGetImageBuffer(buf);
@@ -93,15 +106,16 @@ static void FIDLoadPrefs(void) {
             ss.hits++;
             if (ss.hits >= gRequiredFrames) {
                 ss.done = YES; [ss stop];
-                dispatch_async(dispatch_get_main_queue(), ^{ if(ss.cb) ss.cb(YES); });
+                dispatch_async(dispatch_get_main_queue(), ^{ if (ss.cb) ss.cb(YES); });
             }
         }];
     [[[VNImageRequestHandler alloc] initWithCVPixelBuffer:px options:@{}]
         performRequests:@[req] error:nil];
 }
+
 @end
 
-// ─── UI Оверлей ───────────────────────────────────────────────────────────────
+// ─── Оверлей ──────────────────────────────────────────────────────────────────
 @interface FIDOverlay : UIView
 - (void)animate;
 - (void)showOK:(BOOL)ok;
@@ -137,7 +151,8 @@ static void FIDLoadPrefs(void) {
     [self.layer addSublayer:_line];
 
     UILabel *title = [UILabel new];
-    title.text = @"Face ID"; title.textColor = [UIColor colorWithWhite:1 alpha:0.5];
+    title.text = @"Face ID";
+    title.textColor = [UIColor colorWithWhite:1 alpha:0.5];
     title.font = [UIFont systemFontOfSize:12 weight:UIFontWeightLight];
     title.textAlignment = NSTextAlignmentCenter;
     title.frame = CGRectMake(0, _oval.origin.y-28, f.size.width, 18);
@@ -168,9 +183,10 @@ static void FIDLoadPrefs(void) {
         ? [UIColor colorWithRed:0.2 green:0.88 blue:0.45 alpha:1]
         : [UIColor colorWithRed:1 green:0.3 blue:0.3 alpha:1];
 }
+
 @end
 
-// ─── Показать UI и запустить сканер ───────────────────────────────────────────
+// ─── Аутентификация ───────────────────────────────────────────────────────────
 static void FIDRun(NSString *reason, void(^reply)(BOOL, NSError*)) {
     FIDLoadPrefs();
     if (!gEnabled) {
@@ -178,9 +194,7 @@ static void FIDRun(NSString *reason, void(^reply)(BOOL, NSError*)) {
                                       code:LAErrorBiometryNotAvailable userInfo:nil]);
         return;
     }
-
     dispatch_async(dispatch_get_main_queue(), ^{
-        // Найти ключевое окно
         UIWindow *win = nil;
         for (UIWindowScene *sc in UIApplication.sharedApplication.connectedScenes) {
             if (![sc isKindOfClass:UIWindowScene.class]) continue;
@@ -195,7 +209,6 @@ static void FIDRun(NSString *reason, void(^reply)(BOOL, NSError*)) {
         FIDOverlay *ov = [[FIDOverlay alloc] initWithFrame:win.bounds];
         ov.alpha = 0;
         [win addSubview:ov];
-
         [UIView animateWithDuration:0.22 animations:^{ ov.alpha = 1; }
                          completion:^(BOOL _) {
             [ov animate];
@@ -222,7 +235,7 @@ static void FIDRun(NSString *reason, void(^reply)(BOOL, NSError*)) {
 // HOOKS
 // ════════════════════════════════════════════════════════════════════════════════
 
-// LAContext — перехватываем во всех приложениях
+// ─── LAContext ────────────────────────────────────────────────────────────────
 %hook LAContext
 
 - (LABiometryType)biometryType {
@@ -253,146 +266,120 @@ static void FIDRun(NSString *reason, void(^reply)(BOOL, NSError*)) {
 
 %end
 
-// SpringBoard — экран блокировки
+// ─── SpringBoard ──────────────────────────────────────────────────────────────
 %hook SBFUserAuthenticationController
+
 - (void)_evaluateBiometricAuthentication {
     FIDLoadPrefs();
     if (!gEnabled) { %orig; return; }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// НАСТРОЙКИ — Меняем "Touch ID и пароль" на "Face ID и пароль"
-// ════════════════════════════════════════════════════════════════════════════════
-
-// ─── Приватные классы Settings ────────────────────────────────────────────────
-@interface PSListController : UIViewController
-- (NSArray *)specifiers;
-@end
-
-@interface PSSpecifier : NSObject
-@property (nonatomic, copy) NSString *name;
-+ (id)preferenceSpecifierNamed:(NSString *)name
-                        target:(id)target
-                           set:(SEL)set
-                           get:(SEL)get
-                        detail:(Class)detail
-                          cell:(int)cell
-                          edit:(Class)edit;
-@end
-
-// ─── Хук на раздел настроек биометрии ────────────────────────────────────────
-%hook PasscodeOptionsController
-
-// Переименовываем заголовок
-- (NSString *)title {
-    return @"Face ID и пароль";
-}
-
-// Добавляем секцию настройки Face ID в список настроек
-- (NSArray *)specifiers {
-    NSArray *orig = %orig;
-    NSMutableArray *specs = [NSMutableArray arrayWithArray:orig];
-
-    // Ищем первую группу и вставляем наши настройки в начало
-    PSSpecifier *group = [PSSpecifier preferenceSpecifierNamed:@"Face ID"
-                                                       target:self
-                                                          set:nil
-                                                          get:nil
-                                                       detail:nil
-                                                         cell:1  // PSGroupCell
-                                                         edit:nil];
-
-    PSSpecifier *toggle = [PSSpecifier preferenceSpecifierNamed:@"Face ID включён"
-                                                        target:self
-                                                           set:@selector(fidSetEnabled:specifier:)
-                                                           get:@selector(fidGetEnabled:)
-                                                        detail:nil
-                                                          cell:9  // PSSwitchCell
-                                                          edit:nil];
-    toggle.properties = [@{@"key": @"enabled",
-                           @"default": @YES,
-                           @"PostNotification": @"com.yourname.faceidfor6s/reload"} mutableCopy];
-
-    PSSpecifier *sensitivity = [PSSpecifier preferenceSpecifierNamed:@"Строгость"
-                                                             target:self
-                                                                set:@selector(fidSetFrames:specifier:)
-                                                                get:@selector(fidGetFrames:)
-                                                             detail:nil
-                                                               cell:9
-                                                               edit:nil];
-
-    [specs insertObject:toggle    atIndex:0];
-    [specs insertObject:group     atIndex:0];
-
-    return specs;
-}
-
-%new
-- (id)fidGetEnabled:(PSSpecifier *)spec {
-    NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:
-        @"/var/mobile/Library/Preferences/com.yourname.faceidfor6s.plist"];
-    return d[@"enabled"] ?: @YES;
-}
-
-%new
-- (void)fidSetEnabled:(id)value specifier:(PSSpecifier *)spec {
-    NSMutableDictionary *d = [[NSDictionary dictionaryWithContentsOfFile:
-        @"/var/mobile/Library/Preferences/com.yourname.faceidfor6s.plist"]
-        mutableCopy] ?: [NSMutableDictionary new];
-    d[@"enabled"] = value;
-    [d writeToFile:@"/var/mobile/Library/Preferences/com.yourname.faceidfor6s.plist"
-        atomically:YES];
-    notify_post("com.yourname.faceidfor6s/reload");
+    FIDRun(@"Разблокировать iPhone", ^(BOOL ok, NSError *e) {
+        if (ok) [self _biometricAuthenticationDidSucceed];
+        else    [self _biometricAuthenticationDidFail];
+    });
 }
 
 %end
 
-// ─── Хук на строки — заменяем "Touch ID" → "Face ID" везде в настройках ──────
+// ─── Настройки: переименовываем Touch ID → Face ID ───────────────────────────
 %hook NSBundle
 
 - (NSString *)localizedStringForKey:(NSString *)key value:(NSString *)val table:(NSString *)table {
     NSString *result = %orig;
+    NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
+    if (![bid isEqualToString:@"com.apple.Preferences"]) return result;
 
-    // Заменяем только в процессе Settings
-    NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
-    if (![bundleID isEqualToString:@"com.apple.Preferences"]) return result;
-
-    // Словарь замен
-    static NSDictionary *replacements = nil;
+    static NSDictionary *rep = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        replacements = @{
-            @"Touch ID & Passcode"          : @"Face ID & Passcode",
-            @"Touch ID & Код-пароль"        : @"Face ID и пароль",
-            @"Touch ID и пароль"            : @"Face ID и пароль",
-            @"Touch ID"                     : @"Face ID",
-            @"Use Touch ID for"             : @"Использовать Face ID для",
-            @"TOUCH ID"                     : @"FACE ID",
-            @"Set Up Touch ID"              : @"Настроить Face ID",
-            @"Add a Fingerprint"            : @"Добавить внешность",
-            @"Add a fingerprint"            : @"Добавить внешность",
-            @"Fingerprint"                  : @"Face ID",
-            @"fingerprint"                  : @"Face ID",
-            @"finger"                       : @"лицо",
+        rep = @{
+            @"Touch ID & Passcode"   : @"Face ID и пароль",
+            @"Touch ID & Код-пароль" : @"Face ID и пароль",
+            @"Touch ID и пароль"     : @"Face ID и пароль",
+            @"Touch ID"              : @"Face ID",
+            @"TOUCH ID"              : @"FACE ID",
+            @"Add a Fingerprint"     : @"Добавить Face ID",
+            @"Add a fingerprint"     : @"Добавить Face ID",
+            @"Fingerprint"           : @"Face ID",
+            @"fingerprint"           : @"Face ID",
         };
     });
 
-    for (NSString *from in replacements) {
+    for (NSString *from in rep) {
         if ([result containsString:from]) {
             result = [result stringByReplacingOccurrencesOfString:from
-                                                      withString:replacements[from]];
+                                                      withString:rep[from]];
         }
     }
     return result;
 }
 
 %end
-    FIDRun(@"Разблокировать iPhone", ^(BOOL ok, NSError *e) {
-        if (ok) [self _biometricAuthenticationDidSucceed];
-        else    [self _biometricAuthenticationDidFail];
-    });
+
+// ─── Настройки: добавляем переключатель Face ID прямо в раздел ───────────────
+%hook PasscodeOptionsController
+
+- (NSString *)navigationTitle {
+    return @"Face ID и пароль";
 }
+
+- (NSArray *)specifiers {
+    NSMutableArray *specs = [NSMutableArray arrayWithArray:%orig];
+
+    // Проверяем — не добавили ли уже
+    for (id s in specs) {
+        if ([[s name] isEqualToString:@"Face ID включён"]) return specs;
+    }
+
+    // Группа
+    id grp = [%c(PSSpecifier) preferenceSpecifierNamed:@"Face ID"
+                                               target:self set:nil get:nil
+                                               detail:nil cell:1 edit:nil];
+
+    // Переключатель
+    id tog = [%c(PSSpecifier) preferenceSpecifierNamed:@"Face ID включён"
+                                               target:self
+                                                  set:@selector(fidSetEnabled:specifier:)
+                                                  get:@selector(fidGetEnabled:)
+                                               detail:nil cell:9 edit:nil];
+
+    // Строгость
+    id sens = [%c(PSSpecifier) preferenceSpecifierNamed:@"Строгость распознавания"
+                                                target:self
+                                                   set:@selector(fidSetFrames:specifier:)
+                                                   get:@selector(fidGetFrames:)
+                                                detail:nil cell:9 edit:nil];
+
+    [specs insertObject:sens atIndex:0];
+    [specs insertObject:tog  atIndex:0];
+    [specs insertObject:grp  atIndex:0];
+    return specs;
+}
+
+%new
+- (id)fidGetEnabled:(id)spec { 
+    NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:kPref];
+    return d[@"enabled"] ?: @YES; 
+}
+
+%new
+- (void)fidSetEnabled:(id)val specifier:(id)spec { 
+    FIDSavePrefs(@"enabled", val); 
+}
+
+%new
+- (id)fidGetFrames:(id)spec { 
+    NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:kPref];
+    return d[@"requiredFrames"] ?: @5; 
+}
+
+%new
+- (void)fidSetFrames:(id)val specifier:(id)spec { 
+    FIDSavePrefs(@"requiredFrames", val); 
+}
+
 %end
 
+// ─── Инициализация ────────────────────────────────────────────────────────────
 %ctor {
     FIDLoadPrefs();
     CFNotificationCenterAddObserver(
