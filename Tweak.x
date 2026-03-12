@@ -10,6 +10,11 @@
 #import <objc/runtime.h>
 
 // ─── Форвард-объявления приватных классов BiometricKit ───────────────────────
+@interface SBFUserAuthenticationController : NSObject
+- (void)_biometricAuthenticationDidSucceed;
+- (void)_biometricAuthenticationDidFail;
+- (void)_evaluateBiometricAuthentication;
+@end
 @interface BiometricKitProxy : NSObject
 + (instancetype)sharedInstance;
 - (BOOL)isFaceIDAvailable;
