@@ -12,8 +12,10 @@ jobs:
         run: |
           brew install ldid xz make
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          curl -LO https://github.com/theos/sdks/releases/download/2023-09-26/iPhoneOS16.5.sdk.tar.xz
-          tar -xf iPhoneOS16.5.sdk.tar.xz -C $HOME/theos/sdks/
+          curl -L "https://github.com/theos/sdks/releases/download/2023-09-26/iPhoneOS16.5.sdk.tar.xz" \
+            -o sdk.tar.xz --retry 5
+          file sdk.tar.xz
+          tar -xJf sdk.tar.xz -C $HOME/theos/sdks/
 
       - name: Build
         run: |
