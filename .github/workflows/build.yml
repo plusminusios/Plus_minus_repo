@@ -18,7 +18,7 @@ jobs:
           make package FINALPACKAGE=1
 
       - name: Upload DEB
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: FaceIDFor6s.deb
           path: packages/*.deb
