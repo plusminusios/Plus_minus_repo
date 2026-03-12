@@ -66,9 +66,10 @@
 
 - (void)startScanWithCompletion:(void (^)(BOOL success))completion {
     self.detectionCount = 0;
-    self.onFaceDetected = ^(BOOL detected) {
+    __weak typeof(self) weakSelf = self;
+self.onFaceDetected = ^(BOOL detected) {
         if (detected) {
-            self.detectionCount++;
+            weakSelf.detectionCount++;
             if (self.detectionCount >= self.requiredFrames) {
                 [self stop];
                 dispatch_async(dispatch_get_main_queue(), ^{
