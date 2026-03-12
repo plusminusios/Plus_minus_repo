@@ -17,7 +17,7 @@ include $(THEOS_MAKE_PATH)/tweak.mk
 # ── Панель настроек ────────────────────────────────────
 BUNDLE_NAME := FaceIDFor6sPrefs
 
-FaceIDFor6sPrefs_FILES           := Prefs/RootListController.m
+FaceIDFor6sPrefs_FILES := RootListController.m
 FaceIDFor6sPrefs_CFLAGS          := -fobjc-arc
 FaceIDFor6sPrefs_FRAMEWORKS      := UIKit
 FaceIDFor6sPrefs_PRIVATE_FRAMEWORKS := Preferences
