@@ -1,0 +1,116 @@
+name: Build and Deploy Repo
+
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Theos
+        uses: Randomblock1/theos-action@v1
+
+      - name: Build DEB
+        run: gmake package FINALPACKAGE=1
+
+      - name: Save DEB path
+        id: deb
+        run: echo "path=$(ls packages/*.deb)" >> $GITHUB_OUTPUT
+
+      # ── Собираем APT-репозиторий ──────────────────────────────────────────
+      - name: Build Sileo Repo
+        run: |
+          mkdir -p repo/debs
+
+          # Копируем deb
+          cp packages/*.deb repo/debs/
+
+          # Генерируем Packages
+          cd repo
+          dpkg-scanpackages -m debs > Packages
+          bzip2 -k Packages
+
+          # Release файл
+          cat > Release << 'RELEASE'
+          Origin: FaceIDFor6s Repo
+          Label: FaceIDFor6s
+          Suite: stable
+          Version: 1.0
+          Codename: ios
+          Architectures: iphoneos-arm64
+          Components: main
+          Description: Твик FaceIDFor6s для iPhone 6s
+          RELEASE
+
+          # sileo-featured.json (красивый баннер в Sileo)
+          cat > sileo-featured.json << 'JSON'
+          {
+            "class": "FeaturedBannersView",
+            "banners": [
+              {
+                "package": "com.yourname.faceidfor6s",
+                "title": "FaceIDFor6s",
+                "subtitle": "Face ID для iPhone 6s",
+                "class": "FeaturedBannerView",
+                "tintColor": "#1a73e8"
+              }
+            ]
+          }
+          JSON
+
+          # index.html (страница репозитория)
+          cat > index.html << 'HTML'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>FaceIDFor6s Repo</title>
+            <style>
+              body { font-family: -apple-system, sans-serif; max-width: 600px;
+                     margin: 60px auto; padding: 20px; text-align: center; }
+              h1 { font-size: 2em; }
+              .btn { display: inline-block; margin: 10px; padding: 14px 28px;
+                     background: #1a73e8; color: white; border-radius: 12px;
+                     text-decoration: none; font-size: 16px; }
+              .btn.gray { background: #555; }
+              code { background: #f0f0f0; padding: 10px 16px; border-radius: 8px;
+                     display: block; margin: 20px 0; word-break: break-all; }
+            </style>
+          </head>
+          <body>
+            <h1>👁️ FaceIDFor6s</h1>
+            <p>Твик для iPhone 6s — Face ID через фронтальную камеру</p>
+            <a href="https://sharerepo.stkc.win/?repo=REPLACE_WITH_YOUR_URL" class="btn">
+              Добавить в Sileo
+            </a>
+            <p>Или скопируй ссылку вручную:</p>
+            <code>REPLACE_WITH_YOUR_URL</code>
+          </body>
+          </html>
+          HTML
+
+          cd ..
+
+      # ── Публикуем на GitHub Pages ─────────────────────────────────────────
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          publish_branch: gh-pages
+
+      # ── Также сохраняем deb как артефакт ─────────────────────────────────
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FaceIDFor6s.deb
+          path: packages/*.deb
