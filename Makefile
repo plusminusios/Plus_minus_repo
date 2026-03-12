@@ -12,13 +12,3 @@ FaceIDFor6s_PRIVATE_FRAMEWORKS := SpringBoardFoundation Preferences
 FaceIDFor6s_LIBRARIES  := notify
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-
-BUNDLE_NAME := FaceIDFor6sPrefs
-FaceIDFor6sPrefs_FILES                := RootListController.m
-FaceIDFor6sPrefs_CFLAGS               := -fobjc-arc
-FaceIDFor6sPrefs_FRAMEWORKS           := UIKit
-FaceIDFor6sPrefs_PRIVATE_FRAMEWORKS   := Preferences
-FaceIDFor6sPrefs_INSTALL_PATH         := /Library/PreferenceBundles
-FaceIDFor6sPrefs_RESOURCE_DIRS        := Prefs/Resources
-
-include $(THEOS_MAKE_PATH)/bundle.mk
