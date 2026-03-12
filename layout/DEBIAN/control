@@ -1,0 +1,9 @@
+Package: com.yourname.faceidfor6s
+Name: FaceIDFor6s
+Version: 2.0.0
+Architecture: iphoneos-arm64
+Description: Эмулирует Face ID на iPhone 6s через фронтальную камеру.
+Maintainer: Your Name <you@example.com>
+Author: Your Name <you@example.com>
+Section: Tweaks
+Depends: mobilesubstrate | libhooker-jumpto, firmware (>= 14.0)
