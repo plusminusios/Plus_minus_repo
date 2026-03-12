@@ -9,6 +9,5 @@ FaceIDFor6s_FILES      := Tweak.x
 FaceIDFor6s_CFLAGS     := -fobjc-arc -Wno-deprecated-declarations
 FaceIDFor6s_FRAMEWORKS := UIKit AVFoundation Vision LocalAuthentication
 FaceIDFor6s_PRIVATE_FRAMEWORKS := SpringBoardFoundation Preferences
-FaceIDFor6s_LIBRARIES  := notify
 
 include $(THEOS_MAKE_PATH)/tweak.mk
