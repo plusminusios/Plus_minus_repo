@@ -10,11 +10,6 @@
 #import <objc/runtime.h>
 
 // ─── Форвард-объявления приватных классов BiometricKit ───────────────────────
-@interface SBFUserAuthenticationController : NSObject
-- (void)_biometricAuthenticationDidSucceed;
-- (void)_biometricAuthenticationDidFail;
-- (void)_evaluateBiometricAuthentication;
-@end
 @interface BiometricKitProxy : NSObject
 + (instancetype)sharedInstance;
 - (BOOL)isFaceIDAvailable;
@@ -67,11 +62,13 @@
 - (void)startScanWithCompletion:(void (^)(BOOL success))completion {
     self.detectionCount = 0;
     __weak typeof(self) weakSelf = self;
-self.onFaceDetected = ^(BOOL detected) {
+    self.onFaceDetected = ^(BOOL detected) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
         if (detected) {
-            weakSelf.detectionCount++;
-            if (self.detectionCount >= self.requiredFrames) {
-                [self stop];
+            strongSelf.detectionCount++;
+            if (strongSelf.detectionCount >= strongSelf.requiredFrames) {
+                [strongSelf stop];
                 dispatch_async(dispatch_get_main_queue(), ^{
                     completion(YES);
                 });
@@ -79,10 +76,13 @@ self.onFaceDetected = ^(BOOL detected) {
         }
     };
 
+    __weak typeof(self) weakSelf2 = self;
     dispatch_async(self.queue, ^{
+        __strong typeof(weakSelf2) strongSelf = weakSelf2;
+        if (!strongSelf) return;
         // Настраиваем сессию захвата
-        self.session = [[AVCaptureSession alloc] init];
-        self.session.sessionPreset = AVCaptureSessionPresetMedium;
+        strongSelf.session = [[AVCaptureSession alloc] init];
+        strongSelf.session.sessionPreset = AVCaptureSessionPresetMedium;
 
         AVCaptureDevice *frontCamera =
             [AVCaptureDevice defaultDeviceWithDeviceType:AVCaptureDeviceTypeBuiltInWideAngleCamera
@@ -101,20 +101,23 @@ self.onFaceDetected = ^(BOOL detected) {
             return;
         }
 
-        self.output = [[AVCaptureVideoDataOutput alloc] init];
-        [self.output setSampleBufferDelegate:self queue:self.queue];
-        self.output.alwaysDiscardsLateVideoFrames = YES;
+        strongSelf.output = [[AVCaptureVideoDataOutput alloc] init];
+        [strongSelf.output setSampleBufferDelegate:strongSelf queue:strongSelf.queue];
+        strongSelf.output.alwaysDiscardsLateVideoFrames = YES;
 
-        if ([self.session canAddInput:input])   [self.session addInput:input];
-        if ([self.session canAddOutput:self.output]) [self.session addOutput:self.output];
+        if ([strongSelf.session canAddInput:input])        [strongSelf.session addInput:input];
+        if ([strongSelf.session canAddOutput:strongSelf.output]) [strongSelf.session addOutput:strongSelf.output];
 
-        [self.session startRunning];
+        [strongSelf.session startRunning];
 
         // Таймаут 4 секунды
+        __weak typeof(strongSelf) weakSelf3 = strongSelf;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
-            if (self.detectionCount < self.requiredFrames) {
-                [self stop];
+            __strong typeof(weakSelf3) s = weakSelf3;
+            if (!s) return;
+            if (s.detectionCount < s.requiredFrames) {
+                [s stop];
                 completion(NO);
             }
         });
@@ -122,9 +125,12 @@ self.onFaceDetected = ^(BOOL detected) {
 }
 
 - (void)stop {
+    __weak typeof(self) weakSelf = self;
     dispatch_async(self.queue, ^{
-        if ([self.session isRunning]) {
-            [self.session stopRunning];
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if ([strongSelf.session isRunning]) {
+            [strongSelf.session stopRunning];
         }
     });
 }
@@ -137,11 +143,13 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
     if (!pixelBuffer) return;
 
+    __weak typeof(self) weakSelf = self;
     VNDetectFaceRectanglesRequest *request =
         [[VNDetectFaceRectanglesRequest alloc] initWithCompletionHandler:
          ^(VNRequest *req, NSError *err) {
             BOOL hasFace = (req.results.count > 0);
-            if (self.onFaceDetected) self.onFaceDetected(hasFace);
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (strongSelf.onFaceDetected) strongSelf.onFaceDetected(hasFace);
         }];
 
     VNImageRequestHandler *handler =
@@ -259,9 +267,11 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 
         UIWindow *keyWindow = nil;
         for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-           if ([scene isKindOfClass:[UIWindowScene class]]) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
                 if (@available(iOS 15.0, *)) {
-                    keyWindow = scene.keyWindow;
+                    keyWindow = ((UIWindowScene *)scene).keyWindow;
+                } else {
+                    keyWindow = [UIApplication sharedApplication].keyWindow;
                 }
                 break;
             }
