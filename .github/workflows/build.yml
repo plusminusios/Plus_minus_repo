@@ -8,13 +8,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Theos
-        uses: theos/theos-action@v1
-        with:
-          theos-sdks-source: theos
+      - name: Install dependencies
+        run: brew install ldid xz make
+
+      - name: Clone Theos
+        run: git clone --recursive https://github.com/theos/theos.git $HOME/theos
+
+      - name: Download SDK
+        run: |
+          wget -q "https://github.com/theos/sdks/releases/download/2023-09-26/iPhoneOS16.5.sdk.tar.xz" \
+            -O sdk.tar.xz
+          ls -lh sdk.tar.xz
+          tar xJf sdk.tar.xz -C $HOME/theos/sdks/
 
       - name: Build
-        run: gmake package FINALPACKAGE=1
+        run: |
+          export THEOS=$HOME/theos
+          export PATH=$HOME/theos/bin:$PATH
+          export THEOS_PACKAGE_SCHEME=rootless
+          gmake package FINALPACKAGE=1
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
