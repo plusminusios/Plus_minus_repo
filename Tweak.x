@@ -16,6 +16,12 @@
 - (int)biometryType;
 @end
 
+@interface SBFUserAuthenticationController : NSObject
+- (void)_biometricAuthenticationDidSucceed;
+- (void)_biometricAuthenticationDidFail;
+- (void)_evaluateBiometricAuthentication;
+@end
+
 @interface LAContext (Private)
 - (BOOL)_isBiometryAvailable;
 - (int)_biometryType;
