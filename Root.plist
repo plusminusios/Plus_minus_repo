@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>title</key>
+    <string>FaceID для iPhone 6s</string>
+    <key>items</key>
+    <array>
+
+        <!-- Основные -->
+        <dict>
+            <key>cell</key>    <string>PSGroupCell</string>
+            <key>label</key>   <string>Основные</string>
+        </dict>
+        <dict>
+            <key>cell</key>        <string>PSSwitchCell</string>
+            <key>key</key>         <string>enabled</string>
+            <key>label</key>       <string>Включить FaceID</string>
+            <key>default</key>     <true/>
+            <key>PostNotification</key> <string>com.yourname.faceidfor6s/reload</string>
+        </dict>
+
+        <!-- Чувствительность -->
+        <dict>
+            <key>cell</key>    <string>PSGroupCell</string>
+            <key>label</key>   <string>Чувствительность</string>
+            <key>footerText</key>
+            <string>Меньше кадров = быстрее, но менее надёжно. Больше кадров = надёжнее.</string>
+        </dict>
+        <dict>
+            <key>cell</key>        <string>PSSegmentCell</string>
+            <key>key</key>         <string>requiredFrames</string>
+            <key>label</key>       <string>Строгость</string>
+            <key>default</key>     <integer>6</integer>
+            <key>validValues</key>
+            <array>
+                <integer>3</integer>
+                <integer>6</integer>
+                <integer>10</integer>
+            </array>
+            <key>validTitles</key>
+            <array>
+                <string>Низкая</string>
+                <string>Средняя</string>
+                <string>Высокая</string>
+            </array>
+            <key>PostNotification</key> <string>com.yourname.faceidfor6s/reload</string>
+        </dict>
+
+        <!-- Таймаут -->
+        <dict>
+            <key>cell</key>    <string>PSGroupCell</string>
+            <key>label</key>   <string>Таймаут сканирования</string>
+            <key>footerText</key>
+            <string>Сколько секунд ждать лицо перед тем как показать ошибку.</string>
+        </dict>
+        <dict>
+            <key>cell</key>        <string>PSSegmentCell</string>
+            <key>key</key>         <string>timeout</string>
+            <key>label</key>       <string>Таймаут</string>
+            <key>default</key>     <integer>4</integer>
+            <key>validValues</key>
+            <array>
+                <integer>3</integer>
+                <integer>4</integer>
+                <integer>6</integer>
+            </array>
+            <key>validTitles</key>
+            <array>
+                <string>3 сек</string>
+                <string>4 сек</string>
+                <string>6 сек</string>
+            </array>
+            <key>PostNotification</key> <string>com.yourname.faceidfor6s/reload</string>
+        </dict>
+
+        <!-- О твике -->
+        <dict>
+            <key>cell</key>    <string>PSGroupCell</string>
+            <key>label</key>   <string>О твике</string>
+        </dict>
+        <dict>
+            <key>cell</key>    <string>PSStaticTextCell</string>
+            <key>label</key>   <string>Версия</string>
+            <key>value</key>   <string>2.0.0</string>
+        </dict>
+        <dict>
+            <key>cell</key>    <string>PSStaticTextCell</string>
+            <key>label</key>   <string>Совместимость</string>
+            <key>value</key>   <string>iPhone 6s, iOS 15</string>
+        </dict>
+
+    </array>
+</dict>
+</plist>
